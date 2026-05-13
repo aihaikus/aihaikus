@@ -1,26 +1,167 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0a08;
+  --bg-elevated: #111110;
+  --gold: #c9a84c;
+  --gold-dim: #7a6330;
+  --text-primary: #e8e4d9;
+  --text-secondary: #8a8478;
+  --text-dim: #4a4840;
+  --bitcoin: #f7931a;
+  --border: #1e1e1a;
+  --border-gold: #3a3020;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-dim: var(--text-dim);
+  --color-bitcoin: var(--bitcoin);
+  --color-border-subtle: var(--border);
+  --color-border-gold: var(--border-gold);
+  --font-display: var(--font-cormorant);
+  --font-mono: var(--font-dm-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--bg);
+  color: var(--text-primary);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-dm-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* faint horizontal lines — aged paper texture */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    rgba(232, 228, 217, 0.012) 3px,
+    rgba(232, 228, 217, 0.012) 4px
+  );
+}
+
+/* grain overlay */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.035;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+}
+
+::selection {
+  background: var(--gold-dim);
+  color: var(--bg);
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.haiku-card {
+  animation: fadeUp 0.6s ease forwards;
+  opacity: 0;
+}
+
+.fade-in-delayed {
+  animation: fadeIn 0.8s ease 1s forwards;
+  opacity: 0;
+}
+
+.gold-rule {
+  display: block;
+  width: 96px;
+  height: 1px;
+  background: var(--gold-dim);
+  margin: 0 auto;
+}
+
+.gold-rule-wide {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: var(--border-gold);
+}
+
+.flip-card {
+  perspective: 1000px;
+}
+
+.flipper {
+  position: absolute;
+  inset: 0;
+  transition: transform 600ms ease;
+  transform-style: preserve-3d;
+}
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+@media (hover: hover) {
+  .flip-card:hover .flipper,
+  .flip-card:focus-within .flipper {
+    transform: rotateY(180deg);
+  }
+}
+
+.constellation-group {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.constellation-group.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
