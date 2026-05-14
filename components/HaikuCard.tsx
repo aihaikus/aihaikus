@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Haiku } from "@/lib/haikus";
+import { formatOwnerWalletShort, HAIKU_OWNER_WALLETS } from "@/lib/haikuOwners";
 import { audioManager } from "@/lib/audio";
 
 type HaikuCardProps = {
@@ -26,6 +27,8 @@ export default function HaikuCard({ haiku, index }: HaikuCardProps) {
   const number = String(haiku.id).padStart(2, "0");
   const inscriptionLabel = haiku.inscription.toLocaleString("en-US");
   const ordinalsHref = `https://ordinals.com/inscription/${haiku.inscription}`;
+  const ownerWallet = HAIKU_OWNER_WALLETS[haiku.id];
+  const ownerDisplay = ownerWallet ? formatOwnerWalletShort(ownerWallet) : null;
 
   const handleCardClick = () => {
     if (isTouchDevice) {
@@ -182,6 +185,11 @@ export default function HaikuCard({ haiku, index }: HaikuCardProps) {
         >
           view on ordinals <span aria-hidden="true">↗</span>
         </a>
+        {ownerDisplay ? (
+          <span className="font-mono text-[10px] tracking-[0.2em] text-[#ffeb3b]">
+            owned by {ownerDisplay}
+          </span>
+        ) : null}
       </div>
     </div>
   );
