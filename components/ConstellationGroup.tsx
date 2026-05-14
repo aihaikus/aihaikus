@@ -18,11 +18,22 @@ function toRoman(n: number): string {
   return ROMAN[n - 1] ?? String(n);
 }
 
+// Desktop-only splatter offsets per card.
+//
+// Worst-case clearance math (two adjacent cards translating toward each other):
+//   horizontal: gap-24 (96 px) − 2·24 = 48 px ≈ 1.27 cm  ✓
+//   vertical:   gap-24 (96 px) − 2·18 = 60 px ≈ 1.6  cm  ✓
+//   1 cm ≈ 38 px at the conventional 96 dpi, so both axes clear the bar.
+//
+// At xl breakpoint the gap grows to gap-32 (128 px) giving even more room.
+//
+// Deterministic per haiku id (using coprime moduli) so the same card always
+// lands in the same spot — no hydration mismatch, no reflow on remount.
 function getOffset(id: number) {
   return {
-    translateX: ((id * 37) % 40) - 20,
-    translateY: ((id * 23) % 30) - 15,
-    rotate: ((id * 13) % 10) - 5,
+    translateX: ((id * 37) % 49) - 24,
+    translateY: ((id * 23) % 37) - 18,
+    rotate: ((id * 13) % 17) - 8,
   };
 }
 
@@ -41,16 +52,28 @@ function useIsMobile() {
   return isMobile;
 }
 
+/** Desktop 3-column grid: center orphan row (1 or 2 cards). */
+function desktopLastRowClass(index: number, total: number): string | undefined {
+  const r = total % 3;
+  if (r === 0) return undefined;
+  const isLast = index === total - 1;
+  if (r === 1 && isLast) return "md:col-start-2";
+  if (r === 2 && isLast) return "md:col-start-3";
+  return undefined;
+}
+
 type ConstellationCardProps = {
   haiku: Haiku;
   cardIndex: number;
   isMobile: boolean;
+  className?: string;
 };
 
 function ConstellationCard({
   haiku,
   cardIndex,
   isMobile,
+  className,
 }: ConstellationCardProps) {
   const [hovered, setHovered] = useState(false);
 
@@ -64,7 +87,7 @@ function ConstellationCard({
 
   const useHover = !isMobile && hovered;
 
-  const wrapperStyle: CSSProperties = {
+  const innerStyle: CSSProperties = {
     transform: useHover ? hoverTransform : restTransform,
     transition: "transform 400ms ease",
     zIndex: useHover ? 10 : 1,
@@ -74,13 +97,23 @@ function ConstellationCard({
 
   return (
     <div
-      style={wrapperStyle}
+      className={[
+        className,
+        "constellation-card-cell min-w-0 overflow-visible",
+        /* Padding lives on a NON-rotated shell so rotated art never fights
+           the grid row box — lots of room for ±8° + translate splatter. */
+        "md:px-5 md:pt-28 md:pb-32",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
+      onFocusCapture={() => setHovered(true)}
+      onBlurCapture={() => setHovered(false)}
     >
-      <HaikuCard haiku={haiku} index={cardIndex} />
+      <div style={innerStyle}>
+        <HaikuCard haiku={haiku} index={cardIndex} />
+      </div>
     </div>
   );
 }
@@ -157,15 +190,16 @@ export default function ConstellationGroup({
         </header>
 
         <div
-          className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4"
+          className="constellation-grid grid grid-cols-2 items-start gap-x-8 gap-y-12 overflow-visible md:grid-cols-3 md:gap-x-24 md:gap-y-40 xl:gap-x-32 xl:gap-y-48"
           style={{ overflow: "visible" }}
         >
-          {haikus.map((haiku) => (
+          {haikus.map((haiku, i) => (
             <ConstellationCard
               key={haiku.id}
               haiku={haiku}
               cardIndex={index * 10 + haiku.id}
               isMobile={isMobile}
+              className={desktopLastRowClass(i, haikus.length)}
             />
           ))}
         </div>

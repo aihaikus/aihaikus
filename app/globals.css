@@ -28,6 +28,13 @@
   --font-mono: var(--font-dm-mono);
 }
 
+html {
+  /* clip = no horizontal scroll without turning the root into a scrollport
+     that also clips vertical overflow (broken rotated / transformed cards).
+     `hidden` on body was flattening overflow-y and cutting off splatter. */
+  overflow-x: clip;
+}
+
 html,
 body {
   background: var(--bg);
@@ -41,7 +48,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
-  overflow-x: hidden;
+}
+
+/* Let rotated / translated cards paint outside flow boxes (esp. grid rows). */
+main {
+  overflow: visible;
 }
 
 /* faint horizontal lines — aged paper texture */
@@ -161,6 +172,7 @@ body::before {
   opacity: 0;
   transform: translateY(30px);
   transition: opacity 0.8s ease, transform 0.8s ease;
+  overflow: visible;
 }
 
 .constellation-group.visible {
