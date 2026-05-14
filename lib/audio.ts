@@ -2,15 +2,25 @@ import * as Tone from "tone";
 
 const isBrowser = () => typeof window !== "undefined";
 
-type MelodyEvent = { note: string; dur: string };
-type BassEvent = { notes: string[]; dur: string };
+// Real recording of Chopin's Nocturne Op. 9 No. 2 (Frank Levy, CC0 / public
+// domain, sourced from Musopen via Wikimedia Commons). Loops as the ambient
+// bed for the site.
+const AMBIENT_TRACK_URL = "/audio/chopin-nocturne-op9-no2.mp3";
+
+// Resting playback level for the ambient bed. The Nocturne is a fully
+// mastered recording (peaks near 0 dBFS), so we attenuate generously to
+// keep it feeling like background.
+const AMBIENT_BASE_DB = -13;
+// How far we duck while a haiku is being whispered.
+const AMBIENT_DUCK_DB = -30;
+// Effective silence when muted.
+const AMBIENT_MUTE_DB = -60;
 
 class AudioManager {
   private started = false;
   private muted = false;
   private ambientVolume: Tone.Volume | null = null;
-  private reverb: Tone.Reverb | null = null;
-  private delay: Tone.FeedbackDelay | null = null;
+  private ambientPlayer: Tone.Player | null = null;
   private speechSynth: SpeechSynthesisUtterance | null = null;
 
   async start() {
@@ -18,9 +28,10 @@ class AudioManager {
     if (this.started) return;
     await Tone.start();
     this.buildAmbient();
-    // Reverb IR is generated asynchronously — wait so the first chord
-    // doesn't land dry into a not-yet-rendered convolver buffer.
+    // Wait for the MP3 to finish decoding before we let `start()` resolve,
+    // otherwise the first .start() call on the Player can no-op.
     await Tone.loaded();
+    this.ambientPlayer?.start();
     this.started = true;
   }
 
@@ -39,6 +50,7 @@ class AudioManager {
       this.started = true;
       this.buildAmbient();
       await Tone.loaded();
+      this.ambientPlayer?.start();
     } catch (err) {
       if (typeof console !== "undefined") {
         console.warn("[audio] autoStart failed, will retry on next gesture", err);
@@ -49,173 +61,24 @@ class AudioManager {
   private buildAmbient() {
     if (!isBrowser()) return;
 
-    // Master volume.
-    this.ambientVolume = new Tone.Volume(-12).toDestination();
+    // Master volume node — every ambient-bed change (mute, ducking) is
+    // applied here so we never have to touch the Player directly.
+    this.ambientVolume = new Tone.Volume(AMBIENT_BASE_DB).toDestination();
 
-    // Salon / chamber reverb — short, dry, classical clarity.
-    this.reverb = new Tone.Reverb({
-      decay: 1.8,
-      wet: 0.25,
+    // Real piano recording — has natural room acoustics already, so we
+    // route it straight into the master volume instead of through an
+    // extra reverb (which would just muddy the recorded ambience).
+    this.ambientPlayer = new Tone.Player({
+      url: AMBIENT_TRACK_URL,
+      loop: true,
+      autostart: false,
+      // The MP3 has the usual encoder-induced silence at head/tail.
+      // Nudging the loop window in by ~50 ms on each side avoids a
+      // gap at the loop boundary.
+      loopStart: 0.05,
+      fadeIn: 0.8,
+      fadeOut: 0.8,
     }).connect(this.ambientVolume);
-
-    // === RIGHT HAND — singing melody voice (fortepiano-ish triangle) ===
-    const melodySynth = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: { attack: 0.02, decay: 0.4, sustain: 0.3, release: 0.8 },
-      volume: -18,
-    }).connect(this.reverb);
-
-    // === LEFT HAND — Alberti bass (rounder sine, plays chords) ===
-    const bassSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.02, decay: 0.3, sustain: 0.2, release: 0.6 },
-      volume: -24,
-    }).connect(this.reverb);
-
-    // Tempo and meter must be set BEFORE we resolve any Tone.Time values
-    // below, because Time conversions read the transport's current BPM.
-    Tone.getTransport().bpm.value = 96;
-    Tone.getTransport().timeSignature = 3;
-
-    // === MELODY ===
-    // 16 bars (two 8-bar phrases) of a Mozart-flavoured C-major theme.
-    // Each entry is [note, duration].
-    const melodyPhraseA: Array<[string, string]> = [
-      // Bar 1 — opening gesture, ascending
-      ["E4", "4n"], ["G4", "4n"], ["C5", "4n"],
-      // Bar 2 — step down
-      ["B4", "4n"], ["A4", "4n"], ["G4", "4n"],
-      // Bar 3 — ornamental turn
-      ["A4", "8n"], ["G4", "8n"], ["A4", "4n"], ["F4", "4n"],
-      // Bar 4 — cadence approaching
-      ["G4", "2n"], ["E4", "4n"],
-      // Bar 5 — repeat with variation, higher
-      ["G4", "4n"], ["C5", "4n"], ["E5", "4n"],
-      // Bar 6 — singing descent
-      ["D5", "4n"], ["C5", "4n"], ["B4", "4n"],
-      // Bar 7 — tension building
-      ["C5", "4n"], ["B4", "4n"], ["A4", "4n"],
-      // Bar 8 — perfect cadence landing on tonic
-      ["G4", "2n"], ["C4", "4n"],
-    ];
-
-    const melodyPhraseB: Array<[string, string]> = [
-      // Bar 9 — contrasting phrase, starts on dominant
-      ["G4", "4n"], ["B4", "4n"], ["D5", "4n"],
-      // Bar 10
-      ["C5", "4n"], ["B4", "4n"], ["A4", "4n"],
-      // Bar 11 — minor inflection (A minor)
-      ["A4", "4n"], ["C5", "4n"], ["E5", "4n"],
-      // Bar 12
-      ["D5", "4n"], ["C5", "4n"], ["B4", "4n"],
-      // Bar 13 — return to C major feeling
-      ["C5", "8n"], ["D5", "8n"], ["E5", "4n"], ["C5", "4n"],
-      // Bar 14
-      ["D5", "4n"], ["B4", "4n"], ["G4", "4n"],
-      // Bar 15 — penultimate bar, building to final cadence
-      ["A4", "4n"], ["F4", "4n"], ["G4", "4n"],
-      // Bar 16 — final resolution
-      ["C5", "2n"], ["C4", "4n"],
-    ];
-
-    const fullMelody: Array<[string, string]> = [
-      ...melodyPhraseA,
-      ...melodyPhraseB,
-    ];
-
-    let melodyTime = 0;
-    const melodyEvents: Array<[number, MelodyEvent]> = [];
-    for (const [note, dur] of fullMelody) {
-      melodyEvents.push([melodyTime, { note, dur }]);
-      melodyTime += Tone.Time(dur).toSeconds();
-    }
-
-    const melodyPart = new Tone.Part<[number, MelodyEvent]>((time, value) => {
-      if (this.muted) return;
-      melodySynth.triggerAttackRelease(value.note, value.dur, time);
-    }, melodyEvents);
-    melodyPart.loop = true;
-    melodyPart.loopEnd = melodyTime;
-    melodyPart.start(0);
-
-    // === ALBERTI BASS ===
-    // Pattern over each bar: 6 eighth notes alternating root + (5th+3rd).
-    // Bar harmonies match the melody's implied chord changes.
-    const bassPattern: string[][][] = [
-      // Phrase A
-      // Bar 1 — C major
-      [["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"]],
-      // Bar 2 — G major
-      [["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"]],
-      // Bar 3 — F major
-      [["F2"], ["C3", "A2"], ["F2"], ["C3", "A2"], ["F2"], ["C3", "A2"]],
-      // Bar 4 — G major
-      [["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"]],
-      // Bar 5 — C major
-      [["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"]],
-      // Bar 6 — G major
-      [["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"]],
-      // Bar 7 — A minor
-      [["A2"], ["E3", "C3"], ["A2"], ["E3", "C3"], ["A2"], ["E3", "C3"]],
-      // Bar 8 — C major (cadence)
-      [["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"]],
-      // Phrase B
-      // Bar 9 — G major
-      [["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"]],
-      // Bar 10 — C major
-      [["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"]],
-      // Bar 11 — A minor
-      [["A2"], ["E3", "C3"], ["A2"], ["E3", "C3"], ["A2"], ["E3", "C3"]],
-      // Bar 12 — G major
-      [["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"]],
-      // Bar 13 — C major
-      [["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"]],
-      // Bar 14 — G major
-      [["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"], ["G2"], ["D3", "B2"]],
-      // Bar 15 — F major
-      [["F2"], ["C3", "A2"], ["F2"], ["C3", "A2"], ["F2"], ["C3", "A2"]],
-      // Bar 16 — C major (resolution)
-      [["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"], ["C3"], ["G3", "E3"]],
-    ];
-
-    const barDuration = Tone.Time("2n.").toSeconds();
-    const eighthDuration = Tone.Time("8n").toSeconds();
-    const totalBassTime = bassPattern.length * barDuration;
-
-    const bassEvents: Array<[number, BassEvent]> = [];
-    bassPattern.forEach((bar, barIndex) => {
-      const barStart = barIndex * barDuration;
-      bar.forEach((noteSet, eighthIndex) => {
-        bassEvents.push([
-          barStart + eighthIndex * eighthDuration,
-          { notes: noteSet, dur: "8n" },
-        ]);
-      });
-    });
-
-    const bassPart = new Tone.Part<[number, BassEvent]>((time, value) => {
-      if (this.muted) return;
-      bassSynth.triggerAttackRelease(value.notes, value.dur, time);
-    }, bassEvents);
-    bassPart.loop = true;
-    bassPart.loopEnd = totalBassTime;
-    bassPart.start(0);
-
-    // === GRACE NOTES — quick ornaments before two melodic peaks ===
-    const graceEvents: Array<[number, MelodyEvent]> = [
-      [Tone.Time("4m").toSeconds() - 0.08, { note: "D5", dur: "32n" }],
-      [Tone.Time("12m").toSeconds() - 0.08, { note: "D5", dur: "32n" }],
-    ];
-
-    const gracePart = new Tone.Part<[number, MelodyEvent]>((time, value) => {
-      if (this.muted) return;
-      melodySynth.triggerAttackRelease(value.note, value.dur, time);
-    }, graceEvents);
-    gracePart.loop = true;
-    gracePart.loopEnd = melodyTime;
-    gracePart.start(0);
-
-    Tone.getTransport().start();
   }
 
   async playFlipAccent() {
@@ -248,7 +111,7 @@ class AudioManager {
     window.speechSynthesis.cancel();
 
     if (this.ambientVolume) {
-      this.ambientVolume.volume.rampTo(-24, 0.5);
+      this.ambientVolume.volume.rampTo(AMBIENT_DUCK_DB, 0.5);
     }
 
     // 12 distinct voice characters — each haiku id maps to one of these
@@ -300,7 +163,7 @@ class AudioManager {
       // newer one is about to (or already has) re-ducked the ambient bed.
       if (this.speechSynth !== utterance) return;
       if (!this.ambientVolume) return;
-      this.ambientVolume.volume.rampTo(-10, ramp);
+      this.ambientVolume.volume.rampTo(AMBIENT_BASE_DB, ramp);
     };
 
     utterance.onend = () => restoreAmbient(1.5);
@@ -325,11 +188,11 @@ class AudioManager {
     if (this.muted) {
       window.speechSynthesis?.cancel();
       if (this.ambientVolume) {
-        this.ambientVolume.volume.rampTo(-60, 0.5);
+        this.ambientVolume.volume.rampTo(AMBIENT_MUTE_DB, 0.5);
       }
     } else {
       if (this.ambientVolume) {
-        this.ambientVolume.volume.rampTo(-10, 0.5);
+        this.ambientVolume.volume.rampTo(AMBIENT_BASE_DB, 0.5);
       }
     }
     return this.muted;

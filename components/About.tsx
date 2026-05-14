@@ -1,6 +1,6 @@
 export default function About() {
   return (
-    <section className="w-full px-6 py-32 sm:px-10 md:py-40">
+    <section className="w-full px-6 pb-16 pt-12 sm:px-10 sm:py-24 md:py-40">
       <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-16 md:grid-cols-12 md:gap-20">
         <div className="md:col-span-5">
           <blockquote className="font-display text-[28px] font-light italic leading-[1.35] text-text-primary sm:text-[34px] md:text-[40px]">

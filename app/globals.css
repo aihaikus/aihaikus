@@ -133,8 +133,9 @@ body::before {
 .flipper {
   position: absolute;
   inset: 0;
-  transition: transform 600ms ease;
+  transition: transform 600ms ease, -webkit-transform 600ms ease;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
 
 .flip-face {
@@ -146,6 +147,7 @@ body::before {
 
 .flip-back {
   transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
 }
 
 @media (hover: hover) {
@@ -164,4 +166,37 @@ body::before {
 .constellation-group.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Mobile tweaks */
+@media (max-width: 768px) {
+  /* Collapse the hero's full-viewport height and trim padding so the
+     section hugs its content instead of leaving a huge gap below.
+     `height: auto` covers the case where any descendant rule (or a
+     Tailwind utility like h-screen) tries to set an explicit height. */
+  .hero-section {
+    min-height: auto !important;
+    height: auto !important;
+    padding-top: 80px !important;
+    padding-bottom: 60px !important;
+  }
+
+  /* Darken the front-face overlay so any baked-in text in the artwork
+     is much less legible on small screens. */
+  .card-front-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.5) 0%,
+      rgba(0, 0, 0, 0.85) 100%
+    ) !important;
+  }
+
+  /* Tuck the mute button into the corner so it doesn't overlap cards. */
+  .mute-button {
+    bottom: 12px !important;
+    right: 12px !important;
+    padding: 5px 10px !important;
+    font-size: 9px !important;
+    z-index: 2000 !important;
+  }
 }

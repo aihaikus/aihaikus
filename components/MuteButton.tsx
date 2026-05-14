@@ -47,6 +47,7 @@ export default function MuteButton() {
       aria-label={muted ? "Unmute ambient sound" : "Mute ambient sound"}
       aria-pressed={muted}
       style={buttonStyle}
+      className="mute-button"
     >
       {muted ? "♪ UNMUTE" : "♪ MUTE"}
     </button>

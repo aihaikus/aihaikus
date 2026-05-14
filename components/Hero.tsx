@@ -2,7 +2,7 @@ export default function Hero() {
   return (
     <section
       id="top"
-      className="relative flex min-h-[calc(100vh-60px)] w-full items-center justify-center overflow-hidden px-6 py-24 sm:px-10"
+      className="hero-section relative flex min-h-[calc(100vh-60px)] w-full items-center justify-center overflow-hidden px-6 py-24 sm:px-10"
     >
       {/* radial glow behind title */}
       <div
