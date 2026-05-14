@@ -10,7 +10,7 @@ const AMBIENT_TRACK_URL = "/audio/chopin-nocturne-op9-no2.mp3";
 // Resting playback level for the ambient bed. The Nocturne is a fully
 // mastered recording (peaks near 0 dBFS), so we attenuate generously to
 // keep it feeling like background.
-const AMBIENT_BASE_DB = -13;
+const AMBIENT_BASE_DB = -3;
 // How far we duck while a haiku is being whispered.
 const AMBIENT_DUCK_DB = -30;
 // Effective silence when muted.
